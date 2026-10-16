@@ -1,0 +1,31 @@
+{
+	"version": 6,
+	"cmakeMinimumRequired": {
+		"major": 3,
+		"minor": 14,
+		"patch": 0
+	},
+	"configurePresets": [
+		{
+			"name": "player-only",
+			"binaryDir": "${sourceDir}/build/"
+		},
+		{
+			"name": "player-with-test-programs",
+			"inherits": "player-only",
+			"cacheVariables": {
+				"BUILD_TESTS": "ON"
+			}
+		}
+	],
+	"buildPresets": [
+		{
+			"name": "player-only",
+			"configurePreset": "player-only"
+		},
+		{
+			"name": "player-with-test-programs",
+			"configurePreset": "player-with-test-programs"
+		}
+	]
+}
