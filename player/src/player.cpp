@@ -18,6 +18,7 @@ constexpr auto kMaxSleep = 10ms;
 constexpr auto kStatusPeriod = 250ms;
 constexpr double kLateTolerance = 0.1;
 constexpr auto kMaxDropStreak = 500ms;
+constexpr auto kFpsPeriod = 1s;
 
 struct WindowSize {
   int width;
@@ -288,11 +289,13 @@ double Player::position() const {
 void Player::toggle_pause() {
   m_paused = !m_paused;
   m_clock->pause(m_paused);
+  std::printf("\n%s at %.2f s\n", m_paused ? "pause" : "resume", position());
   print_status(true);
 }
 
 void Player::seek_relative(double delta) {
-  double target = std::max(0.0, position() + delta);
+  const double from = position();
+  double target = std::max(0.0, from + delta);
   if (m_duration > 0.0) {
     target = std::min(target, m_duration);
   }
@@ -309,6 +312,7 @@ void Player::seek_relative(double delta) {
     m_clock->reset(target, serial);
   }
   m_video_ended = false;
+  std::printf("\nseek %+.0f s: %.2f -> %.2f s\n", delta, from, target);
   print_status(true);
 }
 
@@ -319,14 +323,17 @@ void Player::print_status(bool force) {
   }
   m_last_status = now;
   const char* state = m_paused ? "[paused]" : m_video_ended ? "[end]" : "";
-  std::printf("\r  %s / %s  dropped %-6ld %-8s", format_time(position()).c_str(),
-              format_time(m_duration).c_str(), m_dropped.load(), state);
+  std::printf("\r  %s / %s  fps %4.1f  dropped %-6ld %-8s",
+              format_time(position()).c_str(), format_time(m_duration).c_str(),
+              m_fps, m_dropped.load(), state);
   std::fflush(stdout);
 }
 
 void Player::main_loop() {
   std::optional<VideoItem> pending;
   bool redraw = true;
+  int shown = 0;
+  auto fps_since = SteadyClock::now();
 
   auto next = [&](int serial) -> std::optional<VideoItem> {
     while (std::optional<VideoItem> item = m_frames.try_pop()) {
@@ -373,6 +380,7 @@ void Player::main_loop() {
           break;
         }
         m_renderer->upload(to_render_frame(*show.frame));
+        ++shown;
         redraw = true;
       } else if (!m_paused) {
         const auto until_due = std::chrono::duration_cast<SteadyClock::duration>(
@@ -387,9 +395,18 @@ void Player::main_loop() {
       redraw = false;
     }
 
+    if (const auto elapsed = SteadyClock::now() - fps_since; elapsed >= kFpsPeriod) {
+      m_fps = shown / std::chrono::duration<double>(elapsed).count();
+      shown = 0;
+      fps_since += elapsed;
+    }
+
     print_status(false);
 
     std::this_thread::sleep_until(wake_at);
+  }
+  if (!m_control.stopped()) {
+    std::printf("\nquit at %.2f s", position());
   }
 }
 

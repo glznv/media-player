@@ -84,6 +84,7 @@ class Player final {
   bool m_paused = false;
   bool m_video_ended = false;
   std::atomic<long> m_dropped{0};
+  double m_fps = 0.0;
   std::chrono::steady_clock::time_point m_last_status{};
 
   std::thread m_demux_thread;
