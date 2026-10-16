@@ -7,3 +7,4 @@ option(BUILD_TESTS "Test individual components of the player" OFF)
 
 add_subdirectory(render)
 add_subdirectory(audio)
+add_subdirectory(media)
